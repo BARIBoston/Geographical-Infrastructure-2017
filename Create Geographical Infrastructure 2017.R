@@ -1,17 +1,11 @@
-# this file creates the properties, land parcels (shp and csv), and ID connector files
-# it requires the property assessments file (shp and csv) from boston open data,
-    # the blocks and roads files, for geocoding and attaching geographic data
-    # and the master address list from boston open data and the old property assessment longitudinal file, to complete the IDConnector
-
-# first 
-
 
 
 #------ PATHS ----####
 #INPUTS  PATHS 
-PA17path =      "/Users/henrygomory/Downloads/Parcels_2017.csv"
+PA17path =      "/Users/henrygomory/Downloads/property-assessment-fy2017.csv"
 P17shp_path =   "/Users/henrygomory/Downloads/Parcels2017DataFull/"  # from boston open data
 P17shp_name =   "Parcels2017DataFull"  # from boston open data
+pal16path = "/Users/henrygomory/Documents/Research/BARI/Git/New-BARI/Property Assessment 2017/PADLong.Record.2016.csv"
 malpath =       "/Users/henrygomory/Downloads/master-address-list.csv"
 blocksShpPath = "Documents/Research/BARI/Geographic Infrastructure/Geographical Infrastructure 2015/Blocks/"
 blocksShpName = "Blocks_Boston_2010_BARI"
@@ -32,7 +26,7 @@ PA17  = read.csv(PA17path, stringsAsFactors=F)
 P17shp = readOGR(P17shp_path,P17shp_name,stringsAsFactors=F)
 mal = read.csv(malpath,stringsAsFactors=F)
 blocksShp = readOGR(blocksShpPath,blocksShpName,stringsAsFactors=F)
-
+pal16 = read.csv(pal16path, stringsAsFactors=F)
 
 
 #-------CLEANING--------####
@@ -569,7 +563,7 @@ fullLink.f = merge(fullLink, walkover_ssa.d[,c("GIS_ID","Land_Parcel_ID")],by="G
 write.csv(fullLink.f,IDConnectorPath,row.names=F)
 
 
-
-
+## Ideas for the future
+# Could improve the numbers in the roads file using the property assessment data
 
 

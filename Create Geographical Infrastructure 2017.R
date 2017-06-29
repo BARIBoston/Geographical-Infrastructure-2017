@@ -9,6 +9,13 @@ pal16path = "/Users/henrygomory/Documents/Research/BARI/Git/New-BARI/Property As
 malpath =       "/Users/henrygomory/Downloads/master-address-list.csv"
 blocksShpPath = "Documents/Research/BARI/Geographic Infrastructure/Geographical Infrastructure 2015/Blocks/"
 blocksShpName = "Blocks_Boston_2010_BARI"
+
+bgShpPath = "Documents/Research/BARI/Geographic Infrastructure/Geographical Infrastructure 2015/Block Groups 2015/"
+bgShpName = "Census Block Groups"
+
+ctShpPath = "Documents/Research/BARI/Geographic Infrastructure/Geographical Infrastructure 2015/Tracts/"
+ctShpName = "Tracts_Boston_2010_BARI"
+
 # roads used for geocoding
 roadsCSVPath  = "Documents/Research/BARI/Geographic Infrastructure/Geographical Infrastructure 2015/Roads 2015/roads_updated.csv"
 roadsShpPath = "Documents/Research/BARI/Geographic Infrastructure/Geographical Infrastructure 2015/Roads 2015/"
@@ -26,6 +33,8 @@ PA17  = read.csv(PA17path, stringsAsFactors=F)
 P17shp = readOGR(P17shp_path,P17shp_name,stringsAsFactors=F)
 mal = read.csv(malpath,stringsAsFactors=F)
 blocksShp = readOGR(blocksShpPath,blocksShpName,stringsAsFactors=F)
+bgShp = readOGR(bgShpPath,bgShpName,stringsAsFactors=F)
+ctShp = readOGR(ctShpPath,ctShpName,stringsAsFactors=F)
 pal16 = read.csv(pal16path, stringsAsFactors=F)
 
 
@@ -97,10 +106,21 @@ PA17shp <- spTransform(PA17shp, proj4string(blocksShp))
 # do overlay to get block containing each point and bring the data over
 # might want to add something that gets nearest block in case the point falls outside all blocks
 # code for that can be found below in the part connecting the master address list and old property assessment longitudinal to the new GI
-PA17shp.over = over(PA17shp,blocksShp)
-for (var in c("Blk_ID_10","BG_ID_10","CT_ID_10","NSA_NAME","BRA_PD")) {
-  PA17shp@data[,var] = PA17shp.over[,var]
-} 
+PA17shp.over1 = over(PA17shp,blocksShp)
+PA17shp.over2 = over(PA17shp,bgShp)
+PA17shp.over3 = over(PA17shp,ctShp)
+
+PA17shp@data[,c("Blk_ID_10_1","BG_ID_10_1","CT_ID_10_1","NSA_NAME_1","BRA_PD_1")] = PA17shp.over1[,c("Blk_ID_10","BG_ID_10","CT_ID_10","NSA_NAME","BRA_PD")]
+PA17shp@data[,c("BG_ID_10_2","CT_ID_10_2","NSA_NAME_2","BRA_PD_2")] = PA17shp.over2[,c("BG_ID_10","CT_ID_10","NSA_NAME","BRA_PD")]
+PA17shp@data[,c("CT_ID_10_3","NSA_NAME_3","BRA_PD_3")] = PA17shp.over3[,c("CT_ID_10","NSA_NAME","BRA_PD")]
+
+PA17shp@data$Blk_ID_10 = PA17shp@data$Blk_ID_10_1
+PA17shp@data$BG_ID_10 = ifelse(!is.na(PA17shp@data$BG_ID_10_1),PA17shp@data$BG_ID_10_1,PA17shp@data$BG_ID_10_2)
+for (var in c("CT_ID_10","NSA_NAME","BRA_PD")) {
+  PA17shp@data[,var] = ifelse(!is.na(PA17shp@data[,paste(var,"_1",sep="")]),PA17shp@data[,paste(var,"_1",sep="")],
+                              ifelse(!is.na(PA17shp@data[,paste(var,"_2",sep="")]),PA17shp@data[,paste(var,"_2",sep="")],PA17shp@data[,paste(var,"_3",sep="")]))
+}
+
 # check how many we found
 sum(is.na(PA17shp$Blk_ID_10))
 # merge the data onto the original file
@@ -134,28 +154,15 @@ PA17shp.nd@data$city_c = NA
 
 # geocoding in batches because doing it altogether was too much for my computer, the batch size could probably be larger than 3000, though
 # doing it this way took about 2 hours I think
-full_geocode = data.frame(parcel_num = NA, TLID = NA, distance = NA, numMatches = NA, matchType = NA, matchVars = NA)
-full_geocode = full_geocode[-1,]
-base = 1
-while (base < nrow(PA17shp.nd)) {
-  print(base)
-  toRow = base+2999
-  if (toRow>nrow(PA17shp.nd)) {
-      toRow = nrow(PA17shp.nd)
-  } 
-  iter = PA17shp.nd[c(base:toRow),]
-  geocode_iter = data.frame(geocode(toGeocode = iter,tgID = "parcel_num",refName = "Roads",geographies = c(),
-                                    smallestGeo = "TLID",xy = T, matches = list(
-                                      c("street_c","suffix_c","zip_c"),,
-                                      c("street_c","suffix_c"),
-                                      c("street_c","zip_c"),
-                                      c("street_c")),
-                                    refShpPath = roadsShpPath,
-                                    refShpName = roadsShpName,
-                                    refCSVPath = roadsCSVPath)[1])
-  base = toRow+1
-  full_geocode = rbind(full_geocode,geocode_iter)
-}
+full_geocode = geocode(toGeocode = iter,tgID = "parcel_num",refName = "Roads",geographies = c("BG_ID_10","CT_ID_10","NSA_NAME","BRA_PD"),
+                         smallestGeo = "TLID",xy = T, matches = list(
+                           c("street_c","suffix_c","zip_c"),,
+                           c("street_c","suffix_c"),
+                           c("street_c","zip_c"),
+                           c("street_c")),
+                         refShpPath = roadsShpPath,
+                         refShpName = roadsShpName,
+                         refCSVPath = roadsCSVPath)
 
 # you may need to drop a couple of extraneous geocode fields at this point, but i think they probably get dropped later anyway
 # things like distance and matchtype
